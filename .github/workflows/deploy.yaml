@@ -19,10 +19,9 @@ jobs:
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> "$GITHUB_ENV"
 
       - name: Login to Yandex Cloud Container Registry
-        id: login-cr
-        uses: yc-actions/yc-cr-login@v3
-        with:
-          yc-sa-json-credentials: ${{ secrets.YC_SA_KEY }}
+        run: |
+          echo '${{ secrets.YC_SA_KEY }}' \
+            | docker login --username json_key --password-stdin cr.yandex
 
       - name: Build, tag and push versioned image
         env:
