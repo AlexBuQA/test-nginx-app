@@ -1,3 +1,4 @@
+[![Build and Deploy on tag](https://github.com/AlexBuQA/test-nginx-app/actions/workflows/deploy.yaml/badge.svg)](https://github.com/AlexBuQA/test-nginx-app/actions/workflows/deploy.yaml)
 # test-nginx-app
 
 Тестовое приложение для дипломного практикума в Yandex.Cloud — **Александра Бужор**.
