@@ -1,0 +1,55 @@
+name: Build and Deploy on tag
+
+# Запускается при создании тега вида v1.0, v1.1, v2.0.0 и т.п.
+# 1) Собирает образ с тегом = версии.
+# 2) Деплоит этот образ в Kubernetes-кластер (обновляет Deployment).
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set VERSION from tag
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> "$GITHUB_ENV"
+
+      - name: Login to Yandex Cloud Container Registry
+        id: login-cr
+        uses: yc-actions/yc-cr-login@v3
+        with:
+          yc-sa-json-credentials: ${{ secrets.YC_SA_KEY }}
+
+      - name: Build, tag and push versioned image
+        env:
+          CR_REGISTRY: ${{ secrets.YC_REGISTRY_ID }}
+          CR_REPOSITORY: test-nginx-app
+        run: |
+          docker build \
+            -t cr.yandex/$CR_REGISTRY/$CR_REPOSITORY:$VERSION \
+            -t cr.yandex/$CR_REGISTRY/$CR_REPOSITORY:latest \
+            .
+          docker push cr.yandex/$CR_REGISTRY/$CR_REPOSITORY:$VERSION
+          docker push cr.yandex/$CR_REGISTRY/$CR_REPOSITORY:latest
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Configure kubeconfig
+        run: |
+          mkdir -p "$HOME/.kube"
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > "$HOME/.kube/config"
+          chmod 600 "$HOME/.kube/config"
+
+      - name: Deploy new image to cluster
+        env:
+          CR_REGISTRY: ${{ secrets.YC_REGISTRY_ID }}
+          CR_REPOSITORY: test-nginx-app
+        run: |
+          kubectl -n abuzhor-nginx set image deployment/test-nginx \
+            test-nginx=cr.yandex/$CR_REGISTRY/$CR_REPOSITORY:$VERSION
+          kubectl -n abuzhor-nginx rollout status deployment/test-nginx --timeout=120s

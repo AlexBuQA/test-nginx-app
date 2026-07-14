@@ -1,0 +1,36 @@
+name: Build and Push image
+
+# Запускается при любом коммите в ветку main.
+# Собирает Docker-образ и пушит его в Yandex Container Registry с тегами latest и <sha>.
+# Фильтр по branches сам по себе отсекает пуш тегов — они обрабатываются
+# отдельным workflow deploy.yaml. Дополнительный tags-ignore не нужен.
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login to Yandex Cloud Container Registry
+        id: login-cr
+        uses: yc-actions/yc-cr-login@v3
+        with:
+          yc-sa-json-credentials: ${{ secrets.YC_SA_KEY }}
+
+      - name: Build, tag and push image
+        env:
+          CR_REGISTRY: ${{ secrets.YC_REGISTRY_ID }}
+          CR_REPOSITORY: test-nginx-app
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build \
+            -t cr.yandex/$CR_REGISTRY/$CR_REPOSITORY:$IMAGE_TAG \
+            -t cr.yandex/$CR_REGISTRY/$CR_REPOSITORY:latest \
+            .
+          docker push cr.yandex/$CR_REGISTRY/$CR_REPOSITORY:$IMAGE_TAG
+          docker push cr.yandex/$CR_REGISTRY/$CR_REPOSITORY:latest
